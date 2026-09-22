@@ -909,11 +909,11 @@ class MarkingSchemeQuestion(BaseModel):
 class OcrMetadata(BaseModel):
     """Present only when the olmOCR fallback path actually ran."""
 
-    device: Literal["cuda", "cpu"] = Field(
-        ..., description="Device OCR inference ran on."
+    device: Optional[str] = Field(
+        None, description="Device OCR inference ran on (if available)."
     )
-    dtype: Literal["float32", "float16", "bfloat16"] = Field(
-        ..., description="Torch dtype used for OCR inference."
+    dtype: Optional[str] = Field(
+        None, description="Torch dtype used for OCR inference (if available)."
     )
     num_pages: int = Field(..., description="Number of pages/images OCR'd.")
     elapsed_seconds: float = Field(
@@ -1081,15 +1081,15 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "loading"] = Field(
         ..., description="'ok' once the OCR model has finished loading."
     )
-    device: Optional[Literal["cuda", "cpu"]] = Field(
+    device: Optional[str] = Field(
         None,
         description="Null if the model server is unreachable "
-        "(status == 'loading').",
+        "or if using vLLM which does not report this.",
     )
-    dtype: Optional[Literal["float32", "float16", "bfloat16"]] = Field(
+    dtype: Optional[str] = Field(
         None,
         description="Null if the model server is unreachable "
-        "(status == 'loading').",
+        "or if using vLLM which does not report this.",
     )
     gpu: Optional[str] = Field(
         None, description="GPU name. Present only when device == 'cuda'."

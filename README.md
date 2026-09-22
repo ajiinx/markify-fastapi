@@ -185,8 +185,8 @@ uv pip install -r requirements.txt
 
 3. Running the backend
 ```bash
-# Running the model server
-uv run uvicorn model_server:app --host 127.0.0.1 --port 8001
+# Running the model server (vLLM)
+vllm serve Qwen/Qwen2.5-VL-7B-Instruct --host 127.0.0.1 --port 8001 --gpu-memory-utilization 0.85
 
 # Running the main server
 uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
