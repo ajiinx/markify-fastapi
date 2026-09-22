@@ -1130,7 +1130,7 @@ class HealthResponse(BaseModel):
 # selected." shape); otherwise a dict with the extracted/cleaned
 # markdown plus extraction metadata.
 
-async def extract_markdown_from_upload(
+def extract_markdown_from_upload(
     myFile: UploadFile,
     preprocess: bool = False,
 ) -> Optional[dict]:
@@ -1166,7 +1166,7 @@ async def extract_markdown_from_upload(
     # Read uploaded file
     # --------------------------------------------------------
 
-    contents = await myFile.read()
+    contents = myFile.file.read()
 
     logger.info(
         "Received file=%s type=%s size=%d bytes",
@@ -1274,7 +1274,7 @@ async def extract_markdown_from_upload(
         },
     },
 )
-async def accept_model_answer(
+def accept_model_answer(
     myFile: UploadFile = File(
         ...,
         description="The model-answer/marking-scheme PDF (or image) "
@@ -1289,7 +1289,7 @@ async def accept_model_answer(
         "already succeeds.",
     ),
 ):
-    extracted = await extract_markdown_from_upload(
+    extracted = extract_markdown_from_upload(
         myFile,
         preprocess=preprocess,
     )
@@ -1367,7 +1367,7 @@ async def accept_model_answer(
         },
     },
 )
-async def accept_scanned_sheet(
+def accept_scanned_sheet(
     myFile: UploadFile = File(
         ...,
         description="The student's scanned answer sheet to process. "
@@ -1392,7 +1392,7 @@ async def accept_scanned_sheet(
     ),
 ):
     start_time = time.time()
-    extracted = await extract_markdown_from_upload(
+    extracted = extract_markdown_from_upload(
         myFile,
         preprocess=preprocess,
     )
