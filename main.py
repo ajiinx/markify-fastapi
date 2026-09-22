@@ -265,15 +265,16 @@ def load_pages_from_bytes(
         )
 
     if cfg.preprocess:
-        images = [
-            preprocess_image(
-                image,
+        def _prep(img):
+            return preprocess_image(
+                img,
                 deskew=cfg.deskew,
                 denoise=cfg.denoise,
                 enhance_contrast=cfg.enhance_contrast,
             )
-            for image in images
-        ]
+            
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(images))) as executor:
+            images = list(executor.map(_prep, images))
 
     return images
 

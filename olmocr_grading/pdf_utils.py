@@ -56,15 +56,24 @@ def pdf_to_images(
 
         zoom = render_dpi / 72.0  # PDF base unit is 72 dpi
         matrix = fitz.Matrix(zoom, zoom)
-
-        for page_index in range(doc.page_count):
-            page = doc.load_page(page_index)
-            pix = page.get_pixmap(matrix=matrix, alpha=False)
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            img = resize_to_longest_dim(img, target_longest_dim)
-            images.append(img)
+        
+        page_count = doc.page_count
     finally:
         doc.close()
+
+    def _render_page(page_index: int) -> Image.Image:
+        local_doc = fitz.open(str(p))
+        try:
+            page = local_doc.load_page(page_index)
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            return resize_to_longest_dim(img, target_longest_dim)
+        finally:
+            local_doc.close()
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, page_count)) as executor:
+        images = list(executor.map(_render_page, range(page_count)))
 
     logger.info("Rendered %d page(s) from %s", len(images), pdf_path)
     return images
