@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 import time
+import concurrent.futures
 from pathlib import Path
 from typing import List, Literal, Optional, Union
 
@@ -282,28 +283,32 @@ def run_ocr(
     engine: OCREngineClient,
 ) -> List[PageResult]:
 
-    results: List[PageResult] = []
+    results: List[PageResult] = [None] * len(images)  # type: ignore
 
-    for page_number, image in enumerate(images, start=1):
+    def _process(idx: int, page_number: int, image: Image.Image):
         try:
             result = engine.transcribe(
                 image,
                 page_number=page_number,
             )
-
         except Exception:
             logger.exception(
                 "OCR failed on page %d",
                 page_number,
             )
-
             result = PageResult(
                 page=page_number,
                 text="[UNCLEAR]",
                 confidence=None,
             )
+        results[idx] = result
 
-        results.append(result)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(images))) as executor:
+        futures = [
+            executor.submit(_process, idx, page_number, image)
+            for idx, (page_number, image) in enumerate(zip(range(1, len(images) + 1), images))
+        ]
+        concurrent.futures.wait(futures)
 
     return results
 
