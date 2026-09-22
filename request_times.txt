@@ -1,0 +1,87 @@
+
+======================================================================
+TEST START: 2026-09-22 17:15:55.472775
+TOTAL REQUESTS: 10
+======================================================================
+Request #1
+Timestamp: 2026-09-22 17:15:54
+HTTP Status: 200
+Client elapsed: 32.640 seconds
+Server total elapsed: 17.16 seconds
+OCR elapsed: 7.03 seconds
+Pages: 4
+------------------------------------------------------------
+Request #2
+Timestamp: 2026-09-22 17:15:43
+HTTP Status: 200
+Client elapsed: 21.107 seconds
+Server total elapsed: 13.07 seconds
+OCR elapsed: 6.62 seconds
+Pages: 4
+------------------------------------------------------------
+Request #3
+Timestamp: 2026-09-22 17:15:39
+HTTP Status: 200
+Client elapsed: 17.719 seconds
+Server total elapsed: 12.78 seconds
+OCR elapsed: 6.61 seconds
+Pages: 4
+------------------------------------------------------------
+Request #4
+Timestamp: 2026-09-22 17:15:55
+HTTP Status: 200
+Client elapsed: 33.498 seconds
+Server total elapsed: 18.01 seconds
+OCR elapsed: 7.83 seconds
+Pages: 4
+------------------------------------------------------------
+Request #5
+Timestamp: 2026-09-22 17:15:50
+HTTP Status: 200
+Client elapsed: 28.586 seconds
+Server total elapsed: 15.36 seconds
+OCR elapsed: 7.32 seconds
+Pages: 4
+------------------------------------------------------------
+Request #6
+Timestamp: 2026-09-22 17:15:55
+HTTP Status: 200
+Client elapsed: 33.546 seconds
+Server total elapsed: 18.01 seconds
+OCR elapsed: 7.0 seconds
+Pages: 4
+------------------------------------------------------------
+Request #7
+Timestamp: 2026-09-22 17:15:44
+HTTP Status: 200
+Client elapsed: 22.380 seconds
+Server total elapsed: 15.38 seconds
+OCR elapsed: 7.42 seconds
+Pages: 4
+------------------------------------------------------------
+Request #8
+Timestamp: 2026-09-22 17:15:54
+HTTP Status: 200
+Client elapsed: 32.461 seconds
+Server total elapsed: 17.77 seconds
+OCR elapsed: 9.44 seconds
+Pages: 4
+------------------------------------------------------------
+Request #9
+Timestamp: 2026-09-22 17:15:55
+HTTP Status: 200
+Client elapsed: 33.552 seconds
+Server total elapsed: 18.9 seconds
+OCR elapsed: 8.59 seconds
+Pages: 4
+------------------------------------------------------------
+Request #10
+Timestamp: 2026-09-22 17:15:49
+HTTP Status: 200
+Client elapsed: 27.432 seconds
+Server total elapsed: 14.14 seconds
+OCR elapsed: 7.36 seconds
+Pages: 4
+------------------------------------------------------------
+TOTAL WALL-CLOCK TIME: 33.554 seconds
+======================================================================
