@@ -6,6 +6,8 @@ import os
 import re
 import tempfile
 import time
+import argparse
+import asyncio
 import concurrent.futures
 from pathlib import Path
 from typing import List, Literal, Optional, Union
@@ -279,16 +281,14 @@ def load_pages_from_bytes(
     return images
 
 
-def run_ocr(
+async def run_ocr(
     images: List[Image.Image],
     engine: OCREngineClient,
 ) -> List[PageResult]:
 
-    results: List[PageResult] = [None] * len(images)  # type: ignore
-
-    def _process(idx: int, page_number: int, image: Image.Image):
+    async def _process(page_number: int, image: Image.Image) -> PageResult:
         try:
-            result = engine.transcribe(
+            return await engine.transcribe(
                 image,
                 page_number=page_number,
             )
@@ -297,24 +297,17 @@ def run_ocr(
                 "OCR failed on page %d",
                 page_number,
             )
-            result = PageResult(
+            return PageResult(
                 page=page_number,
                 text="[UNCLEAR]",
                 confidence=None,
             )
-        results[idx] = result
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(images))) as executor:
-        futures = [
-            executor.submit(_process, idx, page_number, image)
-            for idx, (page_number, image) in enumerate(zip(range(1, len(images) + 1), images))
-        ]
-        concurrent.futures.wait(futures)
-
-    return results
+    tasks = [_process(idx, image) for idx, image in enumerate(images, start=1)]
+    return await asyncio.gather(*tasks)
 
 
-def ocr_document(
+async def ocr_document(
     contents: bytes,
     filename: str,
     preprocess: bool = False,
@@ -340,7 +333,8 @@ def ocr_document(
 
     req_cfg.preprocess = preprocess
 
-    pages = load_pages_from_bytes(
+    pages = await asyncio.to_thread(
+        load_pages_from_bytes,
         contents,
         suffix,
         req_cfg,
@@ -348,7 +342,7 @@ def ocr_document(
 
     start = time.time()
 
-    results = run_ocr(
+    results = await run_ocr(
         pages,
         OCR_ENGINE,
     )
@@ -1130,7 +1124,7 @@ class HealthResponse(BaseModel):
 # selected." shape); otherwise a dict with the extracted/cleaned
 # markdown plus extraction metadata.
 
-def extract_markdown_from_upload(
+async def extract_markdown_from_upload(
     myFile: UploadFile,
     preprocess: bool = False,
 ) -> Optional[dict]:
@@ -1166,7 +1160,7 @@ def extract_markdown_from_upload(
     # Read uploaded file
     # --------------------------------------------------------
 
-    contents = myFile.file.read()
+    contents = await myFile.read()
 
     logger.info(
         "Received file=%s type=%s size=%d bytes",
@@ -1186,7 +1180,7 @@ def extract_markdown_from_upload(
 
     if suffix == ".pdf":
         try:
-            markdown = pdf_to_markdown(contents)
+            markdown = await asyncio.to_thread(pdf_to_markdown, contents)
             markdown = clean_markdown(markdown)
 
         except Exception:
@@ -1206,7 +1200,7 @@ def extract_markdown_from_upload(
         )
 
         try:
-            ocr_result = ocr_document(
+            ocr_result = await ocr_document(
                 contents,
                 filename,
                 preprocess=preprocess,
@@ -1274,7 +1268,7 @@ def extract_markdown_from_upload(
         },
     },
 )
-def accept_model_answer(
+async def accept_model_answer(
     myFile: UploadFile = File(
         ...,
         description="The model-answer/marking-scheme PDF (or image) "
@@ -1289,7 +1283,7 @@ def accept_model_answer(
         "already succeeds.",
     ),
 ):
-    extracted = extract_markdown_from_upload(
+    extracted = await extract_markdown_from_upload(
         myFile,
         preprocess=preprocess,
     )
@@ -1367,7 +1361,7 @@ def accept_model_answer(
         },
     },
 )
-def accept_scanned_sheet(
+async def accept_scanned_sheet(
     myFile: UploadFile = File(
         ...,
         description="The student's scanned answer sheet to process. "
@@ -1392,7 +1386,7 @@ def accept_scanned_sheet(
     ),
 ):
     start_time = time.time()
-    extracted = extract_markdown_from_upload(
+    extracted = await extract_markdown_from_upload(
         myFile,
         preprocess=preprocess,
     )
@@ -1434,7 +1428,7 @@ def accept_scanned_sheet(
         )
 
     try:
-        segments = segment_document_llm(
+        segments = await segment_document_llm(
             markdown,
             OCR_ENGINE,
             expected_questions=expected_question_numbers,
@@ -1470,7 +1464,7 @@ def accept_scanned_sheet(
         reference_questions = None
 
     try:
-        segments = grade_segments_llm(
+        segments = await grade_segments_llm(
             segments,
             reference_questions,
             OCR_ENGINE,

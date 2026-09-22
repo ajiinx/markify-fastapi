@@ -40,7 +40,7 @@ the segment's original question_id/text.
 
 from __future__ import annotations
 
-import concurrent.futures
+import asyncio
 import json
 import logging
 import re
@@ -79,12 +79,13 @@ You will be given:
 Grade ONLY against the value points given below. Award full marks for a value point only if the student's answer clearly and correctly covers it. Award partial marks if the student's answer partially/vaguely covers a value point. Award zero for a value point the student's answer omits or gets wrong. Do not award marks for content the marking scheme does not credit, however correct or impressive it may be.
 
 Output ONLY a single JSON object and NOTHING else (no markdown fences, no commentary, no explanation outside the JSON):
-{"marks_assigned": <number>, "evaluation_feedback": "<short justification>"}
+{"analysis": "<step-by-step reasoning>", "marks_assigned": <number>, "evaluation_feedback": "<short justification>"}
 
 Strict rules:
-1. "marks_assigned" must be a number (integer or decimal, e.g. 3 or 2.5) between 0 and {max_marks} inclusive - never negative, never above {max_marks}.
-2. "evaluation_feedback" must be a short (1-3 sentence) justification naming which value point(s) were covered, partially covered, or missed.
-3. Never invent value points that aren't in the marking scheme below.
+1. "analysis" must briefly map the student's answer to the value points to reason about the final score.
+2. "marks_assigned" must be a number (integer or decimal, e.g. 3 or 2.5) between 0 and {max_marks} inclusive - never negative, never above {max_marks}.
+3. "evaluation_feedback" must be a short (1-3 sentence) justification summarizing the analysis.
+4. Never invent value points that aren't in the marking scheme below.
 
 === QUESTION ===
 {question_text}
@@ -237,7 +238,7 @@ def _normalize_grading_result(
     return marks_assigned, feedback.strip()
 
 
-def _grade_one_segment(
+async def _grade_one_segment(
     segment: dict,
     reference_question: Optional[dict],
     engine,
@@ -280,7 +281,7 @@ def _grade_one_segment(
     )
 
     try:
-        raw_output = engine.generate_text(prompt, max_new_tokens=max_new_tokens)
+        raw_output = await engine.generate_text(prompt, max_new_tokens=max_new_tokens, is_json=True)
     except Exception:
         logger.exception(
             "LLM grading generation failed for %s; leaving it ungraded.",
@@ -366,7 +367,7 @@ def compute_totals(
     return total_marks, total_max_marks
 
 
-def grade_segments_llm(
+async def grade_segments_llm(
     segments: list[dict],
     reference_questions: Optional[list[dict]],
     engine,
@@ -385,7 +386,7 @@ def grade_segments_llm(
 
     graded_segments = [None] * len(segments)  # type: ignore
 
-    def _process(idx, segment):
+    async def _process(idx, segment):
         if not isinstance(segment, dict):
             graded_segments[idx] = segment
             return
@@ -397,19 +398,15 @@ def grade_segments_llm(
             else None
         )
 
-        graded_segments[idx] = _grade_one_segment(
+        graded_segments[idx] = await _grade_one_segment(
             segment,
             reference_question,
             engine,
             max_new_tokens,
         )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(segments))) as executor:
-        futures = [
-            executor.submit(_process, idx, segment)
-            for idx, segment in enumerate(segments)
-        ]
-        concurrent.futures.wait(futures)
+    tasks = [_process(idx, segment) for idx, segment in enumerate(segments)]
+    await asyncio.gather(*tasks)
 
     graded_count = sum(
         1 for s in graded_segments if isinstance(s, dict) and s.get("marks_assigned") is not None

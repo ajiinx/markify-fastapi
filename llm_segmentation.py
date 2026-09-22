@@ -42,11 +42,13 @@ You will be given the full OCR'd text of ONE scanned answer sheet, with each lin
 
 Your ONLY job is to find where each new question/answer BEGINS and report its line number. Do not grade, correct, summarize, paraphrase, or reproduce any answer content.
 
-Output format - a JSON array and NOTHING else (no markdown fences, no commentary):
-[
-  {"question_id": "Q1", "start_line": 1},
-  {"question_id": "Q2", "start_line": 14}
-]
+Output format - a JSON object containing a "segments" array and NOTHING else (no markdown fences, no commentary):
+{
+  "segments": [
+    {"question_id": "Q1", "start_line": 1},
+    {"question_id": "Q2", "start_line": 14}
+  ]
+}
 
 Strict rules:
 1. "start_line" is the line number (the number in [brackets]) where that question's marker/heading line begins. This must be the FIRST line belonging to that question, i.e. the line containing its Q/Question/Ans/Answer marker or number.
@@ -62,7 +64,7 @@ Now find the question boundaries in the following document.
 {document}
 === SOURCE DOCUMENT END ===
 
-JSON array:"""
+JSON object:"""
 
 
 def _number_lines(text: str) -> tuple[str, list[str]]:
@@ -109,6 +111,9 @@ def _extract_json_array(raw: str) -> Optional[list]:
 
     try:
         parsed = json.loads(cleaned)
+        if isinstance(parsed, dict) and "segments" in parsed:
+            if isinstance(parsed["segments"], list):
+                return parsed["segments"]
         if isinstance(parsed, list):
             return parsed
     except json.JSONDecodeError:
@@ -216,11 +221,11 @@ def _slice_segments(boundaries: list[dict], lines: list[str]) -> list[dict]:
     return segments
 
 
-def segment_document_llm(
+async def segment_document_llm(
     text: str,
     engine,
-    max_new_tokens: int = 512,
     expected_questions: Optional[list[int]] = None,
+    max_new_tokens: int = 1024,
 ) -> list[dict]:
     """
     Segment a document into question-wise sections using the pre-loaded
@@ -262,9 +267,10 @@ def segment_document_llm(
     numbered_text, lines = _number_lines(text)
 
     try:
-        raw_output = engine.generate_text(
+        raw_output = await engine.generate_text(
             _build_prompt(numbered_text, expected_questions),
             max_new_tokens=max_new_tokens,
+            is_json=True,
         )
     except Exception:
         logger.exception("LLM segmentation generation failed; falling back to regex segmentation.")
