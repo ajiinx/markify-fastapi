@@ -40,6 +40,7 @@ the segment's original question_id/text.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import re
@@ -374,25 +375,7 @@ def grade_segments_llm(
     """
     Grade each question-wise segment against the matching model-answer
     question's value points, using the pre-loaded Qwen2.5-VL / olmOCR
-    model in text-only mode (one grading call per segment).
-
-    `segments` is the question_id/text list produced by segmentation
-    (segment_document / segment_document_llm) - left untouched aside
-    from the three added fields.
-
-    `reference_questions` is the "questions" list from the model-answer
-    MongoDB document (main.process_marking_scheme's output). May be
-    None if no model-answer reference could be resolved, in which case
-    every segment comes back ungraded with an explanatory feedback
-    string rather than being dropped.
-
-    `engine` is expected to be an olmocr_grading.ocr_engine.OlmOCREngine
-    instance that has already had .load() called (i.e. main.OCR_ENGINE).
-
-    Never raises: a failure grading one question (missing reference,
-    engine unavailable, generation error, unparsable output) only
-    affects that segment's max_marks/marks_assigned/evaluation_feedback
-    - it never drops the segment or blocks grading of the others.
+    model in text-only mode (now runs concurrently per segment).
     """
 
     if not segments:
@@ -400,11 +383,12 @@ def grade_segments_llm(
 
     indexed_reference = _index_reference_questions(reference_questions)
 
-    graded_segments = []
+    graded_segments = [None] * len(segments)  # type: ignore
 
-    for segment in segments:
+    def _process(idx, segment):
         if not isinstance(segment, dict):
-            continue
+            graded_segments[idx] = segment
+            return
 
         question_number = _question_number_from_id(segment.get("question_id", ""))
         reference_question = (
@@ -413,17 +397,22 @@ def grade_segments_llm(
             else None
         )
 
-        graded_segments.append(
-            _grade_one_segment(
-                segment,
-                reference_question,
-                engine,
-                max_new_tokens,
-            )
+        graded_segments[idx] = _grade_one_segment(
+            segment,
+            reference_question,
+            engine,
+            max_new_tokens,
         )
 
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(segments))) as executor:
+        futures = [
+            executor.submit(_process, idx, segment)
+            for idx, segment in enumerate(segments)
+        ]
+        concurrent.futures.wait(futures)
+
     graded_count = sum(
-        1 for s in graded_segments if s.get("marks_assigned") is not None
+        1 for s in graded_segments if isinstance(s, dict) and s.get("marks_assigned") is not None
     )
     logger.info(
         "LLM grading complete: %d/%d segments graded.",
