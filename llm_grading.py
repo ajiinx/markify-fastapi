@@ -217,9 +217,10 @@ def _extract_json_object(raw: str) -> Optional[dict]:
 def _normalize_grading_result(
     parsed: dict,
     max_marks: float,
-) -> Optional[tuple[float, str]]:
+) -> Optional[tuple[float, str, Optional[str]]]:
     marks_assigned = parsed.get("marks_assigned")
     feedback = parsed.get("evaluation_feedback")
+    analysis = parsed.get("analysis")
 
     if isinstance(marks_assigned, bool) or not isinstance(marks_assigned, (int, float)):
         return None
@@ -235,7 +236,7 @@ def _normalize_grading_result(
     if float(marks_assigned).is_integer():
         marks_assigned = int(marks_assigned)
 
-    return marks_assigned, feedback.strip()
+    return marks_assigned, feedback.strip(), analysis
 
 
 def _grade_one_segment(
@@ -250,6 +251,7 @@ def _grade_one_segment(
         graded["max_marks"] = None
         graded["marks_assigned"] = None
         graded["evaluation_feedback"] = _NO_REFERENCE_FEEDBACK
+        graded["analysis"] = None
         return graded
 
     points = reference_question.get("points") or []
@@ -289,6 +291,7 @@ def _grade_one_segment(
         )
         graded["marks_assigned"] = None
         graded["evaluation_feedback"] = _GENERATION_FAILED_FEEDBACK
+        graded["analysis"] = None
         return graded
 
     parsed = _extract_json_object(raw_output)
@@ -301,6 +304,7 @@ def _grade_one_segment(
         )
         graded["marks_assigned"] = None
         graded["evaluation_feedback"] = _UNPARSEABLE_FEEDBACK
+        graded["analysis"] = None
         return graded
 
     normalized = _normalize_grading_result(parsed, max_marks)
@@ -313,11 +317,13 @@ def _grade_one_segment(
         )
         graded["marks_assigned"] = None
         graded["evaluation_feedback"] = _UNPARSEABLE_FEEDBACK
+        graded["analysis"] = None
         return graded
 
-    marks_assigned, feedback = normalized
+    marks_assigned, feedback, analysis = normalized
     graded["marks_assigned"] = marks_assigned
     graded["evaluation_feedback"] = feedback
+    graded["analysis"] = analysis
 
     return graded
 
