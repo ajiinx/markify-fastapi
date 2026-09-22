@@ -1,0 +1,72 @@
+# ==============================================================================
+# FastAPI / Python Standard GitIgnore Template
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+secret.json
+
+# FastAPI / Uvicorn / Application Logs
+logs/
+*.log
+*.log.*
+podman.log
+
+# Local SQLite Databases (Common in FastAPI development)
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+
+# Testing & Code Coverage
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Distribution / Packaging (if building your FastAPI app as a package)
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
