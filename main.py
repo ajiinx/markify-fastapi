@@ -1043,6 +1043,9 @@ class RawDocumentFileResponse(BaseModel):
     ocr: Optional[OcrMetadata] = Field(
         None, description="Null unless used_ocr is true."
     )
+    total_elapsed_seconds: Optional[float] = Field(
+        None, description="Total wall-clock time for the entire request, rounded to 2dp."
+    )
     segmentation_reference_questions: Optional[List[int]] = Field(
         None,
         description="Question numbers sourced from the model-answer "
@@ -1387,6 +1390,7 @@ async def accept_scanned_sheet(
         "may be in flight concurrently.",
     ),
 ):
+    start_time = time.time()
     extracted = await extract_markdown_from_upload(
         myFile,
         preprocess=preprocess,
@@ -1493,6 +1497,7 @@ async def accept_scanned_sheet(
         "segments": segments,
         "ocr": extracted["ocr_metadata"],
         "segmentation_reference_questions": expected_question_numbers,
+        "total_elapsed_seconds": round(time.time() - start_time, 2),
     }
 
     document_id = db.save_document(
