@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 import requests
-import httpx
 from PIL import Image
 
 MODEL_SERVER_URL = os.getenv("MODEL_SERVER_URL", "http://127.0.0.1:8001")
@@ -92,7 +91,7 @@ class OCREngineClient:
 
     # ---------- inference ----------
 
-    async def transcribe(self, image: Image.Image, page_number: int = 1) -> PageResult:
+    def transcribe(self, image: Image.Image, page_number: int = 1) -> PageResult:
         from olmocr_grading.prompts import get_prompt
         prompt_text = get_prompt(self.ocr_config.use_stock_prompt)
 
@@ -116,22 +115,17 @@ class OCREngineClient:
             "presence_penalty": self.ocr_config.repetition_penalty - 1.0 if self.ocr_config.repetition_penalty > 1.0 else 0.0,
         }
 
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    timeout=self.timeout,
-                )
-                resp.raise_for_status()
-            except httpx.RequestError as e:
-                raise ModelServerError(
-                    f"vLLM /v1/chat/completions call failed for page {page_number}: {e}"
-                ) from e
-            except httpx.HTTPStatusError as e:
-                raise ModelServerError(
-                    f"vLLM /v1/chat/completions call failed with status: {e.response.status_code}"
-                ) from e
+        try:
+            resp = requests.post(
+                f"{self.base_url}/v1/chat/completions",
+                json=payload,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            raise ModelServerError(
+                f"vLLM /v1/chat/completions call failed for page {page_number}: {e}"
+            ) from e
 
         data = resp.json()
         raw_text = data["choices"][0]["message"]["content"].strip()
@@ -151,7 +145,7 @@ class OCREngineClient:
             raw_metadata=metadata,
         )
 
-    async def generate_text(
+    def generate_text(
         self,
         prompt: str,
         max_new_tokens: int = 3072,
@@ -172,22 +166,17 @@ class OCREngineClient:
         if is_json:
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    timeout=self.timeout,
-                )
-                resp.raise_for_status()
-            except httpx.RequestError as e:
-                raise ModelServerError(
-                    f"vLLM /v1/chat/completions call failed: {e}"
-                ) from e
-            except httpx.HTTPStatusError as e:
-                raise ModelServerError(
-                    f"vLLM /v1/chat/completions call failed with status: {e.response.status_code}"
-                ) from e
+        try:
+            resp = requests.post(
+                f"{self.base_url}/v1/chat/completions",
+                json=payload,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            raise ModelServerError(
+                f"vLLM /v1/chat/completions call failed: {e}"
+            ) from e
 
         data = resp.json()
         return data["choices"][0]["message"]["content"].strip()

@@ -221,7 +221,7 @@ def _slice_segments(boundaries: list[dict], lines: list[str]) -> list[dict]:
     return segments
 
 
-async def segment_document_llm(
+def segment_document_llm(
     text: str,
     engine,
     expected_questions: Optional[list[int]] = None,
@@ -267,7 +267,7 @@ async def segment_document_llm(
     numbered_text, lines = _number_lines(text)
 
     try:
-        raw_output = await engine.generate_text(
+        raw_output = engine.generate_text(
             _build_prompt(numbered_text, expected_questions),
             max_new_tokens=max_new_tokens,
             is_json=True,

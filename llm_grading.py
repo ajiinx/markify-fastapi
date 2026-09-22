@@ -40,7 +40,7 @@ the segment's original question_id/text.
 
 from __future__ import annotations
 
-import asyncio
+import concurrent.futures
 import json
 import logging
 import re
@@ -238,7 +238,7 @@ def _normalize_grading_result(
     return marks_assigned, feedback.strip()
 
 
-async def _grade_one_segment(
+def _grade_one_segment(
     segment: dict,
     reference_question: Optional[dict],
     engine,
@@ -281,7 +281,7 @@ async def _grade_one_segment(
     )
 
     try:
-        raw_output = await engine.generate_text(prompt, max_new_tokens=max_new_tokens, is_json=True)
+        raw_output = engine.generate_text(prompt, max_new_tokens=max_new_tokens, is_json=True)
     except Exception:
         logger.exception(
             "LLM grading generation failed for %s; leaving it ungraded.",
@@ -367,7 +367,7 @@ def compute_totals(
     return total_marks, total_max_marks
 
 
-async def grade_segments_llm(
+def grade_segments_llm(
     segments: list[dict],
     reference_questions: Optional[list[dict]],
     engine,
@@ -386,7 +386,7 @@ async def grade_segments_llm(
 
     graded_segments = [None] * len(segments)  # type: ignore
 
-    async def _process(idx, segment):
+    def _process(idx, segment):
         if not isinstance(segment, dict):
             graded_segments[idx] = segment
             return
@@ -398,15 +398,19 @@ async def grade_segments_llm(
             else None
         )
 
-        graded_segments[idx] = await _grade_one_segment(
+        graded_segments[idx] = _grade_one_segment(
             segment,
             reference_question,
             engine,
             max_new_tokens,
         )
 
-    tasks = [_process(idx, segment) for idx, segment in enumerate(segments)]
-    await asyncio.gather(*tasks)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(segments))) as executor:
+        futures = [
+            executor.submit(_process, idx, segment)
+            for idx, segment in enumerate(segments)
+        ]
+        concurrent.futures.wait(futures)
 
     graded_count = sum(
         1 for s in graded_segments if isinstance(s, dict) and s.get("marks_assigned") is not None
