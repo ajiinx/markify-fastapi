@@ -1,4 +1,5 @@
 import requests
+import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -6,13 +7,14 @@ URL = "http://100.94.254.20:8000/scanned"
 PDF_FILE = "Scanned_Answersheet.pdf"
 MODEL_ANSWER_ID = "6ab2547f4082b27c89cf4982"
 
-TOTAL_REQUESTS = 10
-OUTPUT_FILE = "request_times.txt"
+TOTAL_REQUESTS = 25
+OUTPUT_FILE = "responses.txt"
 
 barrier = Barrier(TOTAL_REQUESTS)
 
 
 def send_request(request_number):
+    # Wait until all requests are ready
     barrier.wait()
 
     with open(PDF_FILE, "rb") as f:
@@ -29,17 +31,24 @@ def send_request(request_number):
                 "preprocess": "true",
                 "model_answer_id": MODEL_ANSWER_ID
             },
-            headers={"accept": "*/*"},
+            headers={
+                "accept": "*/*"
+            },
             timeout=None
         )
 
-    result = response.json()
-    elapsed = result.get("total_elapsed_seconds")
+    try:
+        result = response.json()
+        response_text = json.dumps(result, indent=2, ensure_ascii=False)
+    except Exception:
+        response_text = response.text
 
-    return request_number, elapsed
+    return request_number, response_text
 
 
 if __name__ == "__main__":
+
+    print(f"Sending {TOTAL_REQUESTS} requests simultaneously...")
 
     with ThreadPoolExecutor(max_workers=TOTAL_REQUESTS) as executor:
         futures = [
@@ -49,11 +58,16 @@ if __name__ == "__main__":
 
         results = [future.result() for future in futures]
 
-    # Sort by request number
+    # Keep request order
     results.sort(key=lambda x: x[0])
 
-    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
-        for request_number, elapsed in results:
-            f.write(f"Request {request_number}: {elapsed} seconds\n")
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
 
-    print(f"Done. Results saved to {OUTPUT_FILE}")
+        for request_number, response_text in results:
+            f.write(f"Request {request_number}\n")
+            f.write(response_text)
+            f.write("\n")
+            f.write("=" * 80)
+            f.write("\n")
+
+    print(f"Done. Complete responses saved to: {OUTPUT_FILE}")
